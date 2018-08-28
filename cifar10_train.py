@@ -18,7 +18,6 @@ class Train(object):
         # Set up all the placeholders
         self.placeholders()
 
-
     def placeholders(self):
         '''
         There are five placeholders in total.
@@ -37,8 +36,6 @@ class Train(object):
         self.vali_label_placeholder = tf.placeholder(dtype=tf.int32, shape=[FLAGS.validation_batch_size])
 
         self.lr_placeholder = tf.placeholder(dtype=tf.float32, shape=[])
-
-
 
     def build_train_validation_graph(self):
         '''

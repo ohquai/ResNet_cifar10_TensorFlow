@@ -13,7 +13,7 @@ import cv2
 
 data_dir = 'D:/Data/cifar10_data'
 full_data_dir = 'D:/Data/cifar10_data/cifar-10-batches-py/data_batch_'
-vali_dir = 'D:/cifar10_data/cifar-10-batches-py/test_batch'
+vali_dir = 'D:/Data/cifar10_data/cifar-10-batches-py/test_batch'
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
 
 
@@ -63,7 +63,7 @@ def _read_one_batch(path, is_random_label):
     '''
     fo = open(path, 'rb')
     # dicts = cPickle.load(fo)
-    dicts = pk.load(fo)
+    dicts = pk.load(fo, encoding='iso-8859-1')
     fo.close()
 
     data = dicts['data']
@@ -100,7 +100,6 @@ def read_in_all_images(address_list, shuffle=True, is_random_label = False):
     # Reshape is correct. Double checked
     data = data.reshape((num_data, IMG_HEIGHT * IMG_WIDTH, IMG_DEPTH), order='F')
     data = data.reshape((num_data, IMG_HEIGHT, IMG_WIDTH, IMG_DEPTH))
-
 
     if shuffle is True:
         print('Shuffling')
@@ -184,8 +183,7 @@ def read_validation_data():
     Read in validation data. Whitening at the same time
     :return: Validation image data as 4D numpy array. Validation labels as 1D numpy array
     '''
-    validation_array, validation_labels = read_in_all_images([vali_dir],
-                                                       is_random_label=VALI_RANDOM_LABEL)
+    validation_array, validation_labels = read_in_all_images([vali_dir], is_random_label=VALI_RANDOM_LABEL)
     validation_array = whitening_image(validation_array)
 
     return validation_array, validation_labels
