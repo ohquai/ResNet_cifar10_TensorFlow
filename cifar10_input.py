@@ -2,16 +2,18 @@
 # Github: https://github.com/wenxinxu/resnet_in_tensorflow
 # ==============================================================================
 import tarfile
-from six.moves import urllib
+# from six.moves import urllib
+import urllib
 import sys
 import numpy as np
-import cPickle
+# import cPickle
+import pickle as pk
 import os
 import cv2
 
-data_dir = 'cifar10_data'
-full_data_dir = 'cifar10_data/cifar-10-batches-py/data_batch_'
-vali_dir = 'cifar10_data/cifar-10-batches-py/test_batch'
+data_dir = 'D:/Data/cifar10_data'
+full_data_dir = 'D:/Data/cifar10_data/cifar-10-batches-py/data_batch_'
+vali_dir = 'D:/cifar10_data/cifar-10-batches-py/test_batch'
 DATA_URL = 'http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
 
 
@@ -60,7 +62,8 @@ def _read_one_batch(path, is_random_label):
     :return: image numpy arrays and label numpy arrays
     '''
     fo = open(path, 'rb')
-    dicts = cPickle.load(fo)
+    # dicts = cPickle.load(fo)
+    dicts = pk.load(fo)
     fo.close()
 
     data = dicts['data']
@@ -85,7 +88,7 @@ def read_in_all_images(address_list, shuffle=True, is_random_label = False):
     label = np.array([])
 
     for address in address_list:
-        print 'Reading images from ' + address
+        print('Reading images from ' + address)
         batch_data, batch_label = _read_one_batch(address, is_random_label)
         # Concatenate along axis 0 by default
         data = np.concatenate((data, batch_data))
@@ -100,7 +103,7 @@ def read_in_all_images(address_list, shuffle=True, is_random_label = False):
 
 
     if shuffle is True:
-        print 'Shuffling'
+        print('Shuffling')
         order = np.random.permutation(num_data)
         data = data[order, ...]
         label = label[order]
