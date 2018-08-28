@@ -9,6 +9,27 @@ from cifar10_input import *
 import pandas as pd
 
 
+class DataHelpers:
+    def batch_iter(self, data, batch_size, num_epochs, shuffle=True):
+        """
+        Generates a batch iterator for a dataset.
+        """
+        data = np.array(data)
+        data_size = len(data)
+        num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
+        for epoch in range(num_epochs):
+            # Shuffle the data at each epoch
+            if shuffle:
+                shuffle_indices = np.random.permutation(np.arange(data_size))
+                shuffled_data = data[shuffle_indices]
+            else:
+                shuffled_data = data
+            # the last epoch may not satisfy the shape of tensor
+            for batch_num in range(num_batches_per_epoch-1):
+                start_index = batch_num * batch_size
+                end_index = min((batch_num + 1) * batch_size, data_size)
+                yield shuffled_data[start_index:end_index]
+
 
 class Train(object):
     '''
@@ -31,9 +52,9 @@ class Train(object):
                                                         IMG_WIDTH, IMG_DEPTH])
         self.label_placeholder = tf.placeholder(dtype=tf.int32, shape=[FLAGS.train_batch_size])
 
-        self.vali_image_placeholder = tf.placeholder(dtype=tf.float32, shape=[FLAGS.validation_batch_size,
-                                                                IMG_HEIGHT, IMG_WIDTH, IMG_DEPTH])
-        self.vali_label_placeholder = tf.placeholder(dtype=tf.int32, shape=[FLAGS.validation_batch_size])
+        # self.vali_image_placeholder = tf.placeholder(dtype=tf.float32, shape=[FLAGS.validation_batch_size,
+        #                                                         IMG_HEIGHT, IMG_WIDTH, IMG_DEPTH])
+        # self.vali_label_placeholder = tf.placeholder(dtype=tf.int32, shape=[FLAGS.validation_batch_size])
 
         self.lr_placeholder = tf.placeholder(dtype=tf.float32, shape=[])
 
@@ -49,7 +70,7 @@ class Train(object):
         # validation data share all the weights with train data. This is implemented by passing
         # reuse=True to the variable scopes of train graph
         logits = inference(self.image_placeholder, FLAGS.num_residual_blocks, reuse=False)
-        vali_logits = inference(self.vali_image_placeholder, FLAGS.num_residual_blocks, reuse=True)
+        # vali_logits = inference(self.vali_image_placeholder, FLAGS.num_residual_blocks, reuse=True)
 
         # The following codes calculate the train loss, which is consist of the
         # softmax cross entropy and the relularization loss
@@ -58,17 +79,17 @@ class Train(object):
         self.full_loss = tf.add_n([loss] + regu_losses)
 
         predictions = tf.nn.softmax(logits)
-        self.train_top1_error = self.top_k_error(predictions, self.label_placeholder, 1)
+        self.top1_error = self.top_k_error(predictions, self.label_placeholder, 1)
 
 
         # Validation loss
-        self.vali_loss = self.loss(vali_logits, self.vali_label_placeholder)
-        vali_predictions = tf.nn.softmax(vali_logits)
-        self.vali_top1_error = self.top_k_error(vali_predictions, self.vali_label_placeholder, 1)
+        # self.vali_loss = self.loss(vali_logits, self.vali_label_placeholder)
+        # vali_predictions = tf.nn.softmax(vali_logits)
+        # self.vali_top1_error = self.top_k_error(vali_predictions, self.vali_label_placeholder, 1)
 
         self.train_op, self.train_ema_op = self.train_operation(global_step, self.full_loss,
-                                                                self.train_top1_error)
-        self.val_op = self.validation_op(validation_step, self.vali_top1_error, self.vali_loss)
+                                                                self.top1_error)
+        # self.val_op = self.validation_op(validation_step, self.vali_top1_error, self.vali_loss)
 
 
 
@@ -118,72 +139,107 @@ class Train(object):
                                                                         FLAGS.train_batch_size)
 
 
-            validation_batch_data, validation_batch_labels = self.generate_vali_batch(vali_data,
-                                                           vali_labels, FLAGS.validation_batch_size)
+            # validation_batch_data, validation_batch_labels = self.generate_vali_batch(vali_data,
+            #                                                vali_labels, FLAGS.validation_batch_size)
 
             # Want to validate once before training. You may check the theoretical validation
             # loss first
             if step % FLAGS.report_freq == 0:
 
-                if FLAGS.is_full_validation is True:
-                    validation_loss_value, validation_error_value = self.full_validation(loss=self.vali_loss,
-                                            top1_error=self.vali_top1_error, vali_data=vali_data,
-                                            vali_labels=vali_labels, session=sess,
-                                            batch_data=train_batch_data, batch_label=train_batch_labels)
+                # if FLAGS.is_full_validation is True:
+                #     validation_loss_value, validation_error_value = self.full_validation(loss=self.vali_loss,
+                #                             top1_error=self.vali_top1_error, vali_data=vali_data,
+                #                             vali_labels=vali_labels, session=sess,
+                #                             batch_data=train_batch_data, batch_label=train_batch_labels)
+                #
+                #     vali_summ = tf.Summary()
+                #     vali_summ.value.add(tag='full_validation_error',
+                #                         simple_value=validation_error_value.astype(np.float))
+                #     summary_writer.add_summary(vali_summ, step)
+                #     summary_writer.flush()
+                #
+                # else:
+                print('Start evaluating...')
+                print('----------------------------')
+                dev_batches = DataHelpers().batch_iter(list(zip(vali_data, vali_labels)), FLAGS.test_batch_size, 1)
+                total_dev_error = 0
+                total_dev_loss = 0
+                start_time = time.time()
+                for dev_batch in dev_batches:
+                    validation_batch_data, validation_batch_labels = zip(*dev_batch)
+                    # dev_loss, dev_correct = dev_step(x_left_dev_batch, x_right_dev_batch, y_dev_batch)
+                    # _, _, train_loss_value, train_error_value, _, dev_error, dev_loss, summary_str = \
+                    #     sess.run([self.train_op, self.train_ema_op,
+                    #               self.full_loss, self.train_top1_error,
+                    #               self.val_op, self.vali_top1_error, self.vali_loss,
+                    #               summary_op],
+                    #              {self.image_placeholder: train_batch_data,
+                    #               self.label_placeholder: train_batch_labels,
+                    #               # self.vali_image_placeholder: validation_batch_data,
+                    #               # self.vali_label_placeholder: validation_batch_labels,
+                    #               self.lr_placeholder: FLAGS.init_lr})
+                    dev_error, dev_loss, summary_str = \
+                        sess.run([
+                                  self.top1_error, self.full_loss,
+                                  summary_op],
+                                 {self.image_placeholder: train_batch_data,
+                                  self.label_placeholder: train_batch_labels,
+                                  # self.vali_image_placeholder: validation_batch_data,
+                                  # self.vali_label_placeholder: validation_batch_labels,
+                                  self.lr_placeholder: FLAGS.init_lr})
+                    total_dev_error += dev_error * len(validation_batch_labels)
+                    total_dev_loss += dev_loss * len(validation_batch_labels)
+                total_dev_error = float(total_dev_error) / len(vali_labels)
+                total_dev_loss = float(total_dev_loss) / len(vali_labels)
 
-                    vali_summ = tf.Summary()
-                    vali_summ.value.add(tag='full_validation_error',
-                                        simple_value=validation_error_value.astype(np.float))
-                    summary_writer.add_summary(vali_summ, step)
-                    summary_writer.flush()
+                # _, validation_error_value, validation_loss_value = sess.run([self.val_op,
+                #                                                  self.vali_top1_error,
+                #                                              self.vali_loss],
+                #                             {self.image_placeholder: train_batch_data,
+                #                              self.label_placeholder: train_batch_labels,
+                #                              self.vali_image_placeholder: validation_batch_data,
+                #                              self.vali_label_placeholder: validation_batch_labels,
+                #                              self.lr_placeholder: FLAGS.init_lr})
 
-                else:
-                    _, validation_error_value, validation_loss_value = sess.run([self.val_op,
-                                                                     self.vali_top1_error,
-                                                                 self.vali_loss],
-                                                {self.image_placeholder: train_batch_data,
-                                                 self.label_placeholder: train_batch_labels,
-                                                 self.vali_image_placeholder: validation_batch_data,
-                                                 self.vali_label_placeholder: validation_batch_labels,
-                                                 self.lr_placeholder: FLAGS.init_lr})
+                # val_error_list.append(validation_error_value)
+                val_error_list.append(total_dev_error)
 
-                val_error_list.append(validation_error_value)
+                print('Validation top1 error = %.4f' % total_dev_error)
+                print('Validation loss = ', total_dev_loss)
+                print('----------------------------')
+
+                step_list.append(step)
 
 
             start_time = time.time()
 
             _, _, train_loss_value, train_error_value = sess.run([self.train_op, self.train_ema_op,
-                                                           self.full_loss, self.train_top1_error],
+                                                           self.full_loss, self.top1_error],
                                 {self.image_placeholder: train_batch_data,
                                   self.label_placeholder: train_batch_labels,
-                                  self.vali_image_placeholder: validation_batch_data,
-                                  self.vali_label_placeholder: validation_batch_labels,
+                                  # self.vali_image_placeholder: validation_batch_data,
+                                  # self.vali_label_placeholder: validation_batch_labels,
                                   self.lr_placeholder: FLAGS.init_lr})
             duration = time.time() - start_time
 
 
-            if step % FLAGS.report_freq == 0:
-                summary_str = sess.run(summary_op, {self.image_placeholder: train_batch_data,
-                                                    self.label_placeholder: train_batch_labels,
-                                                    self.vali_image_placeholder: validation_batch_data,
-                                                    self.vali_label_placeholder: validation_batch_labels,
-                                                    self.lr_placeholder: FLAGS.init_lr})
-                summary_writer.add_summary(summary_str, step)
+            # if step % FLAGS.report_freq == 0:
+            #     summary_str = sess.run(summary_op, {self.image_placeholder: train_batch_data,
+            #                                         self.label_placeholder: train_batch_labels,
+            #                                         self.vali_image_placeholder: validation_batch_data,
+            #                                         self.vali_label_placeholder: validation_batch_labels,
+            #                                         self.lr_placeholder: FLAGS.init_lr})
+            #         summary_writer.add_summary(summary_str, step)
 
-                num_examples_per_step = FLAGS.train_batch_size
-                examples_per_sec = num_examples_per_step / duration
-                sec_per_batch = float(duration)
+                    # num_examples_per_step = FLAGS.train_batch_size
+                    # examples_per_sec = num_examples_per_step / duration
+                    # sec_per_batch = float(duration)
 
-                format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f ' 'sec/batch)')
-                print(format_str % (datetime.now(), step, train_loss_value, examples_per_sec,
-                                    sec_per_batch))
-                print('Train top1 error = ', train_error_value)
-                print('Validation top1 error = %.4f' % validation_error_value)
-                print('Validation loss = ', validation_loss_value)
-                print('----------------------------')
+                    # format_str = ('%s: step %d, loss = %.4f (%.1f examples/sec; %.3f ' 'sec/batch)')
+                    # print(format_str % (datetime.now(), step, train_loss_value, examples_per_sec, sec_per_batch))
+                    # print('Train top1 error = ', train_error_value)
 
-                step_list.append(step)
-                train_error_list.append(train_error_value)
+                    # train_error_list.append(train_error_value)
 
 
 
@@ -196,9 +252,10 @@ class Train(object):
                 checkpoint_path = os.path.join(train_dir, 'model.ckpt')
                 saver.save(sess, checkpoint_path, global_step=step)
 
-                df = pd.DataFrame(data={'step':step_list, 'train_error':train_error_list,
-                                'validation_error': val_error_list})
-                df.to_csv(train_dir + FLAGS.version + '_error.csv')
+                # df = pd.DataFrame(data={'step':step_list, 'train_error':train_error_list, 'validation_error': val_error_list})
+                df = pd.DataFrame(
+                    data={'step': step_list, 'validation_error': val_error_list})
+                # df.to_csv(train_dir + FLAGS.version + '_error.csv')
 
 
     def test(self, test_image_array):
