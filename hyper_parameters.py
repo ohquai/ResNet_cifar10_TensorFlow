@@ -10,7 +10,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('version', 'test_110', '''A version number defining the directory to save
 logs and checkpoints''')
 # tf.app.flags.DEFINE_integer('report_freq', 391, '''Steps takes to output errors on the screen and write summaries''')
-tf.app.flags.DEFINE_integer('report_freq', 10, '''Steps takes to output errors on the screen and write summaries''')
+tf.app.flags.DEFINE_integer('report_freq', 4000, '''Steps takes to output errors on the screen and write summaries''')
 
 tf.app.flags.DEFINE_float('train_ema_decay', 0.95, '''The decay factor of the train error's
 moving average shown on tensorboard''')

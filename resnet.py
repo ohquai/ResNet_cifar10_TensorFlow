@@ -150,7 +150,7 @@ def residual_block(input_layer, output_channel, first_block=False):
     return output
 
 
-def inference(input_tensor_batch, n, reuse):
+def inference(input_tensor_batch, n, reuse=False):
     """
     The main function that defines the ResNet. total layers = 1 + 2n + 2n + 2n +1 = 6n + 2
     :param input_tensor_batch: 4D tensor
@@ -161,13 +161,13 @@ def inference(input_tensor_batch, n, reuse):
     """
 
     layers = []
-    with tf.variable_scope('conv0', reuse=reuse):
+    with tf.variable_scope('conv0', reuse=tf.AUTO_REUSE):
         conv0 = conv_bn_relu_layer(input_layer=input_tensor_batch, filter_shape=[3, 3, 3, 16], stride=1)
         activation_summary(conv0)
         layers.append(conv0)
 
     for i in range(n):
-        with tf.variable_scope('conv1_%d' % i, reuse=reuse):
+        with tf.variable_scope('conv1_%d' % i, reuse=tf.AUTO_REUSE):
             if i == 0:
                 conv1 = residual_block(layers[-1], output_channel=16, first_block=True)
             else:
@@ -176,18 +176,18 @@ def inference(input_tensor_batch, n, reuse):
             layers.append(conv1)
 
     for i in range(n):
-        with tf.variable_scope('conv2_%d' % i, reuse=reuse):
+        with tf.variable_scope('conv2_%d' % i, reuse=tf.AUTO_REUSE):
             conv2 = residual_block(layers[-1], output_channel=32)
             activation_summary(conv2)
             layers.append(conv2)
 
     for i in range(n):
-        with tf.variable_scope('conv3_%d' % i, reuse=reuse):
+        with tf.variable_scope('conv3_%d' % i, reuse=tf.AUTO_REUSE):
             conv3 = residual_block(layers[-1], output_channel=64)
             layers.append(conv3)
         assert conv3.get_shape().as_list()[1:] == [8, 8, 64]
 
-    with tf.variable_scope('fc', reuse=reuse):
+    with tf.variable_scope('fc', reuse=tf.AUTO_REUSE):
         in_channel = layers[-1].get_shape().as_list()[-1]
         bn_layer = batch_normalization_layer(layers[-1], in_channel)
         relu_layer = tf.nn.relu(bn_layer)

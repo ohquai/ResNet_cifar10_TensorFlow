@@ -7,6 +7,7 @@ from datetime import datetime
 import time
 from cifar10_input import *
 import pandas as pd
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 class DataHelpers:
@@ -70,7 +71,7 @@ class Train(object):
 
         # Logits of training data and valiation data come from the same graph. The inference of validation data share all the weights with train data.
         # This is implemented by passing reuse=True to the variable scopes of train graph
-        logits = inference(self.image_placeholder, FLAGS.num_residual_blocks, reuse=False)
+        logits = inference(self.image_placeholder, FLAGS.num_residual_blocks)
         # vali_logits = inference(self.vali_image_placeholder, FLAGS.num_residual_blocks, reuse=True)
 
         # The following codes calculate the train loss, which is consist of the softmax cross entropy and the relularization loss
@@ -144,7 +145,7 @@ class Train(object):
             _, _, train_loss_value, train_error_value = sess.run(
                 [self.train_op, self.train_ema_op, self.full_loss, self.top1_error],
                 {self.image_placeholder: train_batch_data, self.label_placeholder: train_batch_labels,
-                 self.lr_placeholder: FLAGS.init_lr})
+                 self.lr_placeholder: FLAGS.init_lr,})
             duration = time.time() - start_time
 
             num_examples_per_step = len(train_batch_labels)
@@ -184,7 +185,7 @@ class Train(object):
                     dev_error, dev_loss, summary_str = sess.run([self.top1_error, self.full_loss, summary_op],
                                                                 {self.image_placeholder: validation_batch_data,
                                                                 self.label_placeholder: validation_batch_labels,
-                                                                self.lr_placeholder: FLAGS.init_lr})
+                                                                self.lr_placeholder: FLAGS.init_lr,})
                     total_dev_error += dev_error * len(validation_batch_labels)
                     total_dev_loss += dev_loss * len(validation_batch_labels)
                 total_dev_error = float(total_dev_error) / len(vali_labels)
