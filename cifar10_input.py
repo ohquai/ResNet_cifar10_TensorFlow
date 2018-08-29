@@ -155,9 +155,7 @@ def random_crop_and_flip(batch_data, padding_size):
     for i in range(len(batch_data)):
         x_offset = np.random.randint(low=0, high=2 * padding_size, size=1)[0]
         y_offset = np.random.randint(low=0, high=2 * padding_size, size=1)[0]
-        cropped_batch[i, ...] = batch_data[i, ...][x_offset:x_offset+IMG_HEIGHT,
-                      y_offset:y_offset+IMG_WIDTH, :]
-
+        cropped_batch[i, ...] = batch_data[i, ...][x_offset:x_offset+IMG_HEIGHT, y_offset:y_offset+IMG_WIDTH, :]
         cropped_batch[i, ...] = horizontal_flip(image=cropped_batch[i, ...], axis=1)
 
     return cropped_batch
