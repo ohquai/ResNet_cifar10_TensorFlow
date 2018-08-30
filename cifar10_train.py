@@ -11,34 +11,34 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 class DataHelpers:
-    def batch_iter(self, data, batch_size, num_epochs, shuffle=True, augmentation=True):
+    def batch_iter(self, data, label, batch_size, num_epochs, shuffle=True, augmentation=True):
         """
         Generates a batch iterator for a dataset.
         """
-        data = np.array(data)
-        data_size = len(data)
-        num_batches_per_epoch = int((len(data) - 1) / batch_size) + 1
+        data_size = data.shape[0]
+        num_batches_per_epoch = int(data_size / batch_size) + 1
         for epoch in range(num_epochs):
             # Shuffle the data at each epoch
             if shuffle:
                 shuffle_indices = np.random.permutation(np.arange(data_size))
-                shuffled_data = data[shuffle_indices]
+                shuffled_data = data[shuffle_indices, :, :, :]
+                shuffled_label = label[shuffle_indices]
             else:
                 shuffled_data = data
+                shuffled_label = label
             # the last epoch may not satisfy the shape of tensor
             for batch_num in range(num_batches_per_epoch):
                 start_index = batch_num * batch_size
                 end_index = min((batch_num + 1) * batch_size, data_size)
 
                 if augmentation:
-                    batch_data, batch_labels = zip(*shuffled_data[start_index:end_index])
-                    print(len(batch_data))
+                    batch_data = shuffled_data[start_index:end_index, :, :, :]
+                    batch_label = shuffled_label[start_index:end_index]
                     batch_data = random_crop_and_flip(batch_data, padding_size=FLAGS.padding_size)
                     batch_data = whitening_image(batch_data)
-                    aug_data = list(zip(batch_data, batch_labels))
-                    yield aug_data
+                    yield zip(batch_data, batch_label)
                 else:
-                    yield shuffled_data[start_index:end_index]
+                    yield zip(shuffled_data[start_index:end_index, :, :, :], shuffled_label[start_index:end_index])
 
 
 class Train(object):
@@ -133,14 +133,17 @@ class Train(object):
         print('Start training...')
         print('----------------------------')
 
-        for step in range(FLAGS.train_steps):
+        # for step in range(FLAGS.train_steps):
+        step = 0
+        # generating training data by iteration
+        zip_training_batches = DataHelpers().batch_iter(all_data, all_labels, FLAGS.train_batch_size, FLAGS.train_steps, augmentation=True)
+        for zip_training_batch in zip_training_batches:
+            step += 1
+            if step > FLAGS.train_steps:
+                break
+            train_batch_data, train_batch_labels = zip(*zip_training_batch)
 
-
-            train_batch_data, train_batch_labels = self.generate_augment_train_batch(all_data, all_labels, FLAGS.train_batch_size)
-
-            # train_batches = DataHelpers().batch_iter(list(zip(all_data, all_labels)), FLAGS.train_batch_size, FLAGS.train_steps, augmentation=True)
-            # for train_batch in train_batches:
-            #     train_batch_data, train_batch_labels = zip(*train_batch)
+            # forward propragation
             start_time = time.time()
             _, _, train_loss_value, train_error_value = sess.run(
                 [self.train_op, self.train_ema_op, self.full_loss, self.top1_error],
@@ -166,22 +169,12 @@ class Train(object):
             if step % FLAGS.report_freq == 0 and step > 0:
                 print('Start evaluating...')
                 print('----------------------------')
-                dev_batches = DataHelpers().batch_iter(list(zip(vali_data, vali_labels)), FLAGS.test_batch_size, 1, augmentation=False)
+                zip_validation_batches = DataHelpers().batch_iter(vali_data, vali_labels, FLAGS.test_batch_size, 1, augmentation=False)
                 total_dev_error = 0
                 total_dev_loss = 0
-                for dev_batch in dev_batches:
-                    validation_batch_data, validation_batch_labels = zip(*dev_batch)
-                    # dev_loss, dev_correct = dev_step(x_left_dev_batch, x_right_dev_batch, y_dev_batch)
-                    # _, _, train_loss_value, train_error_value, _, dev_error, dev_loss, summary_str = \
-                    #     sess.run([self.train_op, self.train_ema_op,
-                    #               self.full_loss, self.train_top1_error,
-                    #               self.val_op, self.vali_top1_error, self.vali_loss,
-                    #               summary_op],
-                    #              {self.image_placeholder: train_batch_data,
-                    #               self.label_placeholder: train_batch_labels,
-                    #               # self.vali_image_placeholder: validation_batch_data,
-                    #               # self.vali_label_placeholder: validation_batch_labels,
-                    #               self.lr_placeholder: FLAGS.init_lr})
+                for zip_validation_batch in zip_validation_batches:
+                    validation_batch_data, validation_batch_labels = zip(*zip_validation_batch)
+
                     dev_error, dev_loss, summary_str = sess.run([self.top1_error, self.full_loss, summary_op],
                                                                 {self.image_placeholder: validation_batch_data,
                                                                 self.label_placeholder: validation_batch_labels,
