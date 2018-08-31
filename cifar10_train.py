@@ -51,9 +51,8 @@ class Train(object):
 
     def placeholders(self):
         """
-        There are five placeholders in total.
-        image_placeholder and label_placeholder are for train images and labels
-        vali_image_placeholder and vali_label_placeholder are for validation imgaes and labels
+        There are 3 placeholders in total.
+        image_placeholder and label_placeholder are for train/test images and labels
         lr_placeholder is for learning rate. Feed in learning rate each time of training
         implements learning rate decay easily
         """
@@ -67,12 +66,10 @@ class Train(object):
         
         """
         global_step = tf.Variable(0, trainable=False)
-        validation_step = tf.Variable(0, trainable=False)
 
         # Logits of training data and valiation data come from the same graph. The inference of validation data share all the weights with train data.
         # This is implemented by passing reuse=True to the variable scopes of train graph
         logits = inference(self.image_placeholder, FLAGS.num_residual_blocks)
-        # vali_logits = inference(self.vali_image_placeholder, FLAGS.num_residual_blocks, reuse=True)
 
         # The following codes calculate the train loss, which is consist of the softmax cross entropy and the relularization loss
         regu_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
@@ -86,13 +83,7 @@ class Train(object):
         correct_predictions = tf.not_equal(tf.cast(tf.argmax(predictions, 1), tf.int32), self.label_placeholder)
         self.top1_error = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name="accuracy")
 
-        # Validation loss
-        # self.vali_loss = self.loss(vali_logits, self.vali_label_placeholder)
-        # vali_predictions = tf.nn.softmax(vali_logits)
-        # self.vali_top1_error = self.top_k_error(vali_predictions, self.vali_label_placeholder, 1)
-
         self.train_op, self.train_ema_op = self.train_operation(global_step, self.full_loss, self.top1_error)
-        # self.val_op = self.validation_op(validation_step, self.vali_top1_error, self.vali_loss)
 
     def train(self):
         """
